@@ -2,9 +2,10 @@ const express = require('express');
 const app = express();
 const db = require('./utils/db')
 const cors = require("cors");
+const PORT = process.env.PORT  || 9000
+const authRoutes = require("./routes/authRoutes")
 require('dotenv').config()
 
-const PORT = process.env.PORT 
 
 db();
 app.use(cors({
@@ -15,6 +16,10 @@ app.use(cors({
   }));
 app.use(express.json());
 
+
 app.listen(PORT,()=>{
     console.log(`Server started at ${PORT}`)
- })
+})
+
+//all the basic apis 
+app.use("/api/auth", authRoutes);
