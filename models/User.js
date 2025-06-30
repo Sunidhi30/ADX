@@ -20,6 +20,17 @@ const userSchema = new mongoose.Schema({
     enum: ['hotel', 'real_estate', 'restaurant', 'retail', 'salon', 'gym', 'other'],
     required: true
   },
+  profileImage: {
+    type: String,
+    default: ""
+  },  
+  instagram: {
+    isConnected: { type: Boolean, default: false },
+    instagramUserId: String,
+    username: String,
+    accessToken: String,
+    tokenExpiry: Date
+  },  
   businessDetails: {
     address: String,
     city: String,
