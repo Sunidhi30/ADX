@@ -2,7 +2,9 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
-const { sendOtpEmail } = require("../utils/sendEmail");
+// const { sendOtpEmail } = require("../utils/sendEmail");
+const sendOtpEmail = require("../utils/sendEmail");
+
 const otpStore = new Map();
 
 // Signup route
@@ -112,7 +114,6 @@ router.post("/login", async (req, res) => {
       res.status(500).json({ message: "Server error" });
     }
 });
-
   // Verify OTP and Login
 router.post("/login-otp", async (req, res) => {
     const { email, otp } = req.body;

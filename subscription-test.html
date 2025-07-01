@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription System Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .plan-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .current-plan {
+            background-color: #e7f3ff;
+        }
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .status-section {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <h1>Subscription System Test</h1>
+
+    <!-- Current Subscription Status -->
+    <div class="status-section">
+        <h2>Current Subscription Status</h2>
+        <div id="currentSubscriptionStatus"></div>
+        <button onclick="checkCurrentSubscription()" class="button">Check Current Subscription</button>
+    </div>
+
+    <!-- Available Plans -->
+    <h2>Available Plans</h2>
+    <div id="availablePlans"></div>
+
+    <!-- Payment Processing -->
+    <div id="paymentSection" style="display: none;">
+        <h2>Payment Processing</h2>
+        <div id="paymentDetails"></div>
+    </div>
+
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script>
+        // Replace with your API base URL
+        const API_BASE_URL = 'http://localhost:9000/api/users';
+
+        // Function to check current subscription
+        async function checkCurrentSubscription() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/subscription/my-subscription`, {
+                    headers: {
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODVlMmY0NzdhYTkwNjlmNGQ2MDliNjUiLCJlbWFpbCI6InN1bmlkaGlyYXRyYTIxQGdtYWlsLmNvbSIsImlhdCI6MTc1MTM1NTg2OSwiZXhwIjoxNzUxOTYwNjY5fQ.NnIMSR2aki_4M1fGVcRTD_kDYwNGZvWkj0MrgEWg3ro'
+                    }
+                });
+                const data = await response.json();
+                
+                const statusDiv = document.getElementById('currentSubscriptionStatus');
+                if (data.hasActiveSubscription) {
+                    statusDiv.innerHTML = `
+                        <p>Active Plan: ${data.subscription.plan}</p>
+                        <p>Start Date: ${new Date(data.subscription.startDate).toLocaleDateString()}</p>
+                        <p>End Date: ${new Date(data.subscription.endDate).toLocaleDateString()}</p>
+                        <p>Days Remaining: ${data.subscription.daysRemaining}</p>
+                    `;
+                } else {
+                    statusDiv.innerHTML = '<p>No active subscription</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Function to load available plans
+        async function loadAvailablePlans() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/subscription/available-plans`, {
+                    headers: {
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODVlMmY0NzdhYTkwNjlmNGQ2MDliNjUiLCJlbWFpbCI6InN1bmlkaGlyYXRyYTIxQGdtYWlsLmNvbSIsImlhdCI6MTc1MTM1NTg2OSwiZXhwIjoxNzUxOTYwNjY5fQ.NnIMSR2aki_4M1fGVcRTD_kDYwNGZvWkj0MrgEWg3ro'
+
+                    }
+                });
+                const data = await response.json();
+                
+                const plansDiv = document.getElementById('availablePlans');
+                plansDiv.innerHTML = data.availablePlans.map(plan => `
+                    <div class="plan-card ${plan.isCurrent ? 'current-plan' : ''}">
+                        <h3>${plan.name}</h3>
+                        <p>Price: ₹${plan.price}</p>
+                        <p>Duration: ${plan.durationInDays} days</p>
+                        <p>Features: ${plan.features.join(', ')}</p>
+                        ${!plan.isCurrent ? `<button onclick="initializeSubscription('${plan.id}')" class="button">Subscribe</button>` : ''}
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Function to initialize subscription
+        async function initializeSubscription(planId) {
+            try {
+                // Step 1: Initiate subscription
+                const initiateResponse = await fetch(`${API_BASE_URL}/subscription/initiate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODVlMmY0NzdhYTkwNjlmNGQ2MDliNjUiLCJlbWFpbCI6InN1bmlkaGlyYXRyYTIxQGdtYWlsLmNvbSIsImlhdCI6MTc1MTM1NTg2OSwiZXhwIjoxNzUxOTYwNjY5fQ.NnIMSR2aki_4M1fGVcRTD_kDYwNGZvWkj0MrgEWg3ro'
+
+                    },
+                    body: JSON.stringify({ planId })
+                });
+                const initiateData = await initiateResponse.json();
+
+                if (!initiateData.success) {
+                    alert(initiateData.message);
+                    return;
+                }
+
+                // Step 2: Create order
+                const orderResponse = await fetch(`${API_BASE_URL}/subscription/create-order`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODVlMmY0NzdhYTkwNjlmNGQ2MDliNjUiLCJlbWFpbCI6InN1bmlkaGlyYXRyYTIxQGdtYWlsLmNvbSIsImlhdCI6MTc1MTM1NTg2OSwiZXhwIjoxNzUxOTYwNjY5fQ.NnIMSR2aki_4M1fGVcRTD_kDYwNGZvWkj0MrgEWg3ro'
+
+                    },
+                    body: JSON.stringify({ planId })
+                });
+                const orderData = await orderResponse.json();
+
+                // Step 3: Initialize Razorpay
+                const options = {
+                    key: 'rzp_test_7m8iz2GqqZ6H9C',
+                    amount: orderData.amount,
+                    currency: orderData.currency,
+                    order_id: orderData.orderId,
+                    name: 'Infyle',
+                    description: 'Subscription Payment',
+                    handler: function(response) {
+                        verifyPayment(response, orderData.transactionId, planId);
+                    }
+                };
+
+                const rzp = new Razorpay(options);
+                rzp.open();
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to initialize subscription');
+            }
+        }
+
+        // Function to verify payment
+        async function verifyPayment(razorpayResponse, transactionId, planId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/subscription/verify-payment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODVlMmY0NzdhYTkwNjlmNGQ2MDliNjUiLCJlbWFpbCI6InN1bmlkaGlyYXRyYTIxQGdtYWlsLmNvbSIsImlhdCI6MTc1MTM1NTg2OSwiZXhwIjoxNzUxOTYwNjY5fQ.NnIMSR2aki_4M1fGVcRTD_kDYwNGZvWkj0MrgEWg3ro'
+
+                    },
+                    body: JSON.stringify({
+                        razorpay_order_id: razorpayResponse.razorpay_order_id,
+                        razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+                        razorpay_signature: razorpayResponse.razorpay_signature,
+                        transactionId,
+                        planId
+                    })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('Subscription activated successfully!');
+                    checkCurrentSubscription();
+                    loadAvailablePlans();
+                } else {
+                    alert('Payment verification failed');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Payment verification failed');
+            }
+        }
+
+        // Load plans when page loads
+        window.onload = () => {
+            loadAvailablePlans();
+            checkCurrentSubscription();
+        };
+    </script>
+</body>
+</html>

@@ -5,6 +5,7 @@ const cors = require("cors");
 const PORT = process.env.PORT  || 9000
 const authRoutes = require("./routes/auth")
 const userRoutes = require("./routes/User")
+const adminRoutes = require("./routes/admin")
 const facebookRoutes = require("./routes/facebook")
 require('dotenv').config()
 db();
@@ -23,11 +24,13 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use('/api/auth/facebook', facebookRoutes);
 
+app.use('/api/admin', adminRoutes);
 
-app.get("/testing-facebook", (req, res) => {
-  res.sendFile(__dirname + "/facebook-connect.html");
-});
 
 app.get("/facebook", (req, res) => {
   res.sendFile(__dirname + "/facebook-test.html");
+});
+
+app.get("/payement", (req, res) => {
+  res.sendFile(__dirname + "/subscription-test.html");
 });
