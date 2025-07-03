@@ -62,9 +62,9 @@ router.post("/signup", async (req, res) => {
 router.post("/verify-signup-otp", async (req, res) => {
   const { email, otp, firstName, lastName } = req.body;
 
-  if (!email || !otp || !firstName || !lastName) {
-    return res.status(400).json({ message: "All fields are required" });
-  }
+  // if (!email || !otp || !firstName || !lastName) {
+  //   return res.status(400).json({ message: "All fields are required" });
+  // }
 
   try {
     // Get OTP from temporary store
