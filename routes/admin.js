@@ -6,8 +6,12 @@ const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const isAdmin = require("../middlewares/isAdmin");
 const SubscriptionPlan = require("../models/SubscriptionPlan")
+const upload = require("../utils/multer");
+const cloudinary = require("../utils/cloudinary");
+const { uploadToCloudinary } = require("../utils/cloudinary");
+const User = require("../models/User")
+const mongoose = require('mongoose');
 require('dotenv').config(); // to load from .env
-
 // Nodemailer transporter
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -16,76 +20,77 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS
   }
 });
-
-// Send OTP
-router.post('/send-otp', async (req, res) => {
+router.post("/signup", async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ message: 'Email is required' });
+
+  if (!email) return res.status(400).json({ message: "Email is required" });
 
   try {
+    // Check if user already exists
+    const existingAdmin = await Admin.findOne({ email });
+    if (existingAdmin)
+      return res.status(400).json({ message: "Email already exists. Please sign in." });
+
+    // Generate OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
-    let admin = await Admin.findOne({ email });
+    // Store OTP in temporary store (or directly save to Admin document if preferred)
+    const newAdmin = new Admin({
+      email,
+      name: "New Admin",
+      otp: { code: otpCode, expiresAt }
+    });
+    await newAdmin.save();
 
-    if (!admin) {
-      admin = new Admin({
-        email,
-        name: "New Admin",
-        otp: { code: otpCode, expiresAt }
-      });
-    } else {
-      admin.otp = { code: otpCode, expiresAt };
-    }
-
-    await admin.save();
-
-    // Send OTP via email
+    // Send OTP email
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: email,
-      subject: 'Your Admin Login OTP',
-      text: `Your OTP for admin login is ${otpCode}. It will expire in 10 minutes.`
+      subject: "Your Admin Signup OTP",
+      text: `Your OTP for admin signup is ${otpCode}. It will expire in 10 minutes.`
     });
 
-    res.json({ success: true, message: 'OTP sent to email' });
+    res.status(200).json({
+      success: true,
+      message: "OTP sent to email. Please verify to complete signup.",
+      email
+    });
   } catch (err) {
-    console.error('Error sending OTP:', err);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error("Signup error:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
-// Verify OTP
-router.post('/verify-otp', async (req, res) => {
+router.post("/verify-signup-otp", async (req, res) => {
   const { email, otp } = req.body;
-  if (!email || !otp) return res.status(400).json({ message: 'Email and OTP are required' });
+
+  if (!email || !otp)
+    return res.status(400).json({ message: "Email and OTP are required" });
 
   try {
     const admin = await Admin.findOne({ email });
+    if (!admin)
+      return res.status(404).json({ message: "No signup request found for this email" });
 
-    if (!admin || !admin.otp || admin.otp.code !== otp) {
-      return res.status(401).json({ success: false, message: 'Invalid OTP' });
-    }
+    if (admin.otp.code !== otp)
+      return res.status(400).json({ message: "Invalid OTP" });
 
-    if (admin.otp.expiresAt < new Date()) {
-      return res.status(410).json({ success: false, message: 'OTP expired' });
-    }
+    if (admin.otp.expiresAt < new Date())
+      return res.status(400).json({ message: "OTP expired" });
 
+    // OTP verified - clear OTP and activate account
     admin.otp = undefined;
     await admin.save();
 
     const token = jwt.sign(
-        {
-          id: admin._id,
-          email: admin.email,
-          role: admin.role
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-      
-    res.json({
+      { id: admin._id, email: admin.email, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.status(201).json({
       success: true,
-      message: 'OTP verified successfully',
+      message: "Signup successful",
       token,
       admin: {
         id: admin._id,
@@ -96,11 +101,87 @@ router.post('/verify-otp', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error verifying OTP:', err);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error("Signup OTP verification error:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
-// Create a new subscription plan (protected by admin token)
+router.post("/login", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ message: "Email is required" });
+
+  try {
+    const admin = await Admin.findOne({ email });
+    if (!admin)
+      return res.status(404).json({ message: "Email not found. Please sign up first." });
+
+    // Generate OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    admin.otp = { code: otpCode, expiresAt };
+    await admin.save();
+
+    // Send OTP
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: email,
+      subject: "Your Admin Login OTP",
+      text: `Your OTP for admin login is ${otpCode}. It will expire in 10 minutes.`
+    });
+
+    res.status(200).json({ success: true, message: "OTP sent to email" });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+router.post("/verify-login-otp", async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp)
+    return res.status(400).json({ message: "Email and OTP are required" });
+
+  try {
+    const admin = await Admin.findOne({ email });
+    if (!admin)
+      return res.status(404).json({ message: "User not found" });
+
+    if (!admin.otp || admin.otp.code !== otp)
+      return res.status(400).json({ message: "Invalid OTP" });
+
+    if (admin.otp.expiresAt < new Date())
+      return res.status(400).json({ message: "OTP expired" });
+
+    // Clear OTP and generate JWT token
+    admin.otp = undefined;
+    await admin.save();
+
+    const token = jwt.sign(
+      { id: admin._id, email: admin.email, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      admin: {
+        id: admin._id,
+        email: admin.email,
+        name: admin.name,
+        role: admin.role,
+        profileImage: admin.profileImage
+      }
+    });
+  } catch (err) {
+    console.error("Login OTP verification error:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+//create-plan
 router.post('/create-plan', isAdmin , async (req, res) => {
     const { name, price, durationInDays, features } = req.body;
   
@@ -139,6 +220,163 @@ router.get('/get-plans', async (req, res) => {
       console.error('Error fetching subscription plans:', err);
       res.status(500).json({ success: false, message: 'Internal server error' });
     }
+});
+router.get('/profile', isAdmin, async (req, res) => {
+  try {
+    const admin = req.admin;
+
+    // Only return safe fields
+    res.status(200).json({
+      success: true,
+      admin: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        profileImage: admin.profileImage,
+        role: admin.role,
+        isActive: admin.isActive,
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+router.put("/profile", isAdmin, upload.single("profileImage"), async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+    const { name, email } = req.body;
+
+    const updateFields = {
+      ...(name && { name }),
+      ...(email && { email }),
+      updatedAt: new Date(),
+    };
+
+    // Upload image to Cloudinary if file is provided
+    if (req.file) {
+      const imageUrl = await uploadToCloudinary(
+        req.file.buffer,
+        "admin_profiles",
+        req.file.mimetype
+      );
+      updateFields.profileImage = imageUrl;
+    }
+
+    // Update admin profile
+    const updatedAdmin = await Admin.findByIdAndUpdate(adminId, updateFields, {
+      new: true,
+      runValidators: true,
+    }).select("-otp");
+
+    if (!updatedAdmin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    return res.status(200).json({
+      message: "Admin profile updated successfully",
+      admin: updatedAdmin,
+    });
+  } catch (error) {
+    console.error("Admin update error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+router.get('/users', isAdmin, async (req, res) => {
+  try {
+    const { role, status, search, page = 1, limit = 10 } = req.query;
+
+    const query = {};
+
+    if (role) query.role = role;
+    if (status) query.status = status;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const users = await User.find(query)
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
+
+    const total = await User.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      data: users,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+router.get('/users/:id', isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid user ID' });
+    }
+
+    const user = await User.findById(id).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.status(200).json({ success: true, data: user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+// Permanently delete a user
+router.delete('/users/:id', isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid user ID' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    await User.findByIdAndDelete(id);
+
+    res.status(200).json({ success: true, message: 'User deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+// GET /api/admin/users/subscriptions
+router.get("/test-users/subscriptions", isAdmin, async (req, res) => {
+  try {
+    const usersWithSubscriptions = await User.find({}, {
+      email: 1,
+      businessName: 1,
+      subscription: 1,
+    }).sort({ "subscription.startDate": -1 });
+
+    res.status(200).json({
+      success: true,
+      data: usersWithSubscriptions
+    });
+  } catch (error) {
+    console.error("Error fetching user subscriptions:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while retrieving user subscriptions"
+    });
+  }
 });
 
 module.exports = router;

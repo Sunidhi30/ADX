@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Meta Ads API Tester</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    input, textarea, select, button { margin: 5px 0; padding: 8px; width: 100%; }
+    .section { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    pre { background: #eee; padding: 10px; border-radius: 5px; max-height: 200px; overflow: auto; }
+  </style>
+</head>
+<body>
+
+  <h1>Meta Ads API Tester</h1>
+
+  <!-- Facebook Connect -->
+  <div class="section">
+    <h2>1. Connect Facebook Account</h2>
+    <input type="text" id="connectUserId" placeholder="User ID">
+    <button onclick="connectFacebook()">Generate Connect URL</button>
+    <pre id="connectResult"></pre>
+  </div>
+
+  <!-- Get Ad Accounts -->
+  <div class="section">
+    <h2>2. Get Ad Accounts</h2>
+    <input type="text" id="adUserId" placeholder="User ID">
+    <button onclick="getAdAccounts()">Fetch Ad Accounts</button>
+    <pre id="adResult"></pre>
+  </div>
+
+  <!-- Create Campaign -->
+  <div class="section">
+    <h2>3. Create Ad Campaign</h2>
+    <input type="text" id="campaignUserId" placeholder="User ID">
+    <input type="text" id="campaignName" placeholder="Campaign Name">
+    <select id="objective">
+      <option value="REACH">REACH</option>
+      <option value="TRAFFIC">TRAFFIC</option>
+      <option value="ENGAGEMENT">ENGAGEMENT</option>
+      <option value="LEAD_GENERATION">LEAD_GENERATION</option>
+      <option value="CONVERSIONS">CONVERSIONS</option>
+      <option value="BRAND_AWARENESS">BRAND_AWARENESS</option>
+    </select>
+    <input type="number" id="budgetAmount" placeholder="Budget Amount (USD)">
+    <input type="number" id="ageMin" placeholder="Age Min (default 18)">
+    <input type="number" id="ageMax" placeholder="Age Max (default 65)">
+    <input type="text" id="genders" placeholder="Genders (comma: male,female)">
+    <input type="text" id="locations" placeholder="Locations (comma: US,IN)">
+    <input type="text" id="interests" placeholder="Interests (comma: travel,sports)">
+    <input type="text" id="imageUrl" placeholder="Creative Image URL">
+    <input type="text" id="headline" placeholder="Headline">
+    <input type="text" id="description" placeholder="Description">
+    <input type="text" id="cta" placeholder="Call to Action (LEARN_MORE, SHOP_NOW...)">
+    <input type="text" id="destinationUrl" placeholder="Destination URL">
+    <button onclick="createCampaign()">Create Campaign</button>
+    <pre id="campaignResult"></pre>
+  </div>
+
+  <!-- Get Campaigns -->
+  <div class="section">
+    <h2>4. Get Campaigns</h2>
+    <input type="text" id="getCampaignsUserId" placeholder="User ID">
+    <button onclick="getCampaigns()">Fetch Campaigns</button>
+    <pre id="campaignsList"></pre>
+  </div>
+
+  <!-- Get Page Followers -->
+  <div class="section">
+    <h2>5. Get Page Followers</h2>
+    <input type="text" id="followersUserId" placeholder="User ID">
+    <button onclick="getFollowers()">Fetch Page Data</button>
+    <pre id="followersResult"></pre>
+  </div>
+  
+
+  <script>
+    const BASE_URL = 'http://localhost:9000/api/meta-ads';
+
+    const display = (id, data) => {
+      document.getElementById(id).innerText = JSON.stringify(data, null, 2);
+    }
+
+    async function connectFacebook() {
+      const userId = document.getElementById('connectUserId').value;
+      const res = await fetch(`${BASE_URL}/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      display('connectResult', data);
+      if (data?.authUrl) window.open(data.authUrl, '_blank');
+    }
+
+    async function getAdAccounts() {
+      const userId = document.getElementById('adUserId').value;
+      const res = await fetch(`${BASE_URL}/adaccounts/${userId}`);
+      const data = await res.json();
+      display('adResult', data);
+    }
+
+    async function createCampaign() {
+      const userId = document.getElementById('campaignUserId').value;
+      const body = {
+        campaignName: document.getElementById('campaignName').value,
+        objective: document.getElementById('objective').value,
+        budget: { amount: parseFloat(document.getElementById('budgetAmount').value), currency: 'USD' },
+        targeting: {
+          ageMin: parseInt(document.getElementById('ageMin').value),
+          ageMax: parseInt(document.getElementById('ageMax').value),
+          genders: document.getElementById('genders').value.split(','),
+          locations: document.getElementById('locations').value.split(','),
+          interests: document.getElementById('interests').value.split(',')
+        },
+        creative: {
+          imageUrl: document.getElementById('imageUrl').value,
+          headline: document.getElementById('headline').value,
+          description: document.getElementById('description').value,
+          callToAction: document.getElementById('cta').value || 'LEARN_MORE',
+          destinationUrl: document.getElementById('destinationUrl').value
+        }
+      };
+
+      const res = await fetch(`${BASE_URL}/campaigns/${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      display('campaignResult', data);
+    }
+
+    async function getCampaigns() {
+      const userId = document.getElementById('getCampaignsUserId').value;
+      const res = await fetch(`${BASE_URL}/campaigns/${userId}`);
+      const data = await res.json();
+      display('campaignsList', data);
+    }
+
+    async function getFollowers() {
+      const userId = document.getElementById('followersUserId').value;
+      const res = await fetch(`${BASE_URL}/page/followers/${userId}`);
+      const data = await res.json();
+      display('followersResult', data);
+    }
+  </script>
+</body>
+</html>
