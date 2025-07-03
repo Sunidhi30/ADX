@@ -22,7 +22,6 @@ const transporter = nodemailer.createTransport({
 });
 // Temporary store for OTPs (could use Redis or similar for production)
 const otpStore = new Map();
-
 router.post("/signup", async (req, res) => {
   const { email } = req.body;
 
@@ -193,7 +192,6 @@ router.post("/verify-login-otp", async (req, res) => {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
-
 //create-plan
 router.post('/create-plan', isAdmin , async (req, res) => {
     const { name, price, durationInDays, features } = req.body;

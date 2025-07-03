@@ -1,5 +1,6 @@
-// models/AdCampaign.js
+// // models/AdCampaign.js
 const mongoose = require('mongoose');
+
 
 const adCampaignSchema = new mongoose.Schema({
   userId: {
@@ -7,101 +8,40 @@ const adCampaignSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  campaignId: {
-    type: String,
-    unique: true,
-    sparse: true
-  },
-  adSetId: {
-    type: String,
-    unique: true,
-    sparse: true
-  },
-  adId: {
-    type: String,
-    unique: true,
-    sparse: true
-  },
-  campaignName: {
-    type: String,
-    required: true
-  },
+  campaignId: String,
+  adSetId: String,
+  adId: String,
+  campaignName: String,
   objective: {
     type: String,
-    enum: ['REACH', 'TRAFFIC', 'ENGAGEMENT', 'LEAD_GENERATION', 'CONVERSIONS', 'BRAND_AWARENESS'],
-    default: 'REACH'
+    enum: ['REACH', 'TRAFFIC', 'ENGAGEMENT','OUTCOME_AWARENESS',
+    'OUTCOME_TRAFFIC',
+    'OUTCOME_ENGAGEMENT',
+    'OUTCOME_LEADS',
+    'OUTCOME_SALES',
+    'OUTCOME_APP_PROMOTION']
   },
   budget: {
-    amount: {
-      type: Number,
-      required: true
-    },
-    currency: {
-      type: String,
-      default: 'USD'
-    }
+    amount: Number,
+    currency: String
   },
   targeting: {
-    ageMin: {
-      type: Number,
-      default: 18
-    },
-    ageMax: {
-      type: Number,
-      default: 65
-    },
-    genders: [{
-      type: String,
-      enum: ['male', 'female']
-    }],
-    locations: [{
-      type: String
-    }],
-    interests: [{
-      type: String
-    }]
+    ageMin: Number,
+    ageMax: Number,
+    genders: [String],
+    locations: [String],
+    interests: [String]
   },
   creative: {
-    imageUrl: {
-      type: String,
-      required: true
-    },
-    headline: {
-      type: String,
-      required: true
-    },
-    description: {
-      type: String,
-      required: true
-    },
-    callToAction: {
-      type: String,
-      enum: ['LEARN_MORE', 'SHOP_NOW', 'SIGN_UP', 'DOWNLOAD', 'CONTACT_US'],
-      default: 'LEARN_MORE'
-    },
-    destinationUrl: String
+    imageUrl: String,
+    headline: String,
+    description: String,
+    callToAction: String
   },
+  
   status: {
     type: String,
-    enum: ['DRAFT', 'ACTIVE', 'PAUSED', 'DELETED'],
-    default: 'DRAFT'
-  },
-  metrics: {
-    impressions: { type: Number, default: 0 },
-    clicks: { type: Number, default: 0 },
-    spend: { type: Number, default: 0 },
-    reach: { type: Number, default: 0 },
-    ctr: { type: Number, default: 0 },
-    cpm: { type: Number, defxault: 0 }
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+    enum: ['DRAFT', 'ACTIVE', 'PAUSED', 'DELETED']
   }
 });
-
 module.exports = mongoose.model('AdCampaign', adCampaignSchema);
