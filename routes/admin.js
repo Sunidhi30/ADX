@@ -20,6 +20,9 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS
   }
 });
+// Temporary store for OTPs (could use Redis or similar for production)
+const otpStore = new Map();
+
 router.post("/signup", async (req, res) => {
   const { email } = req.body;
 
@@ -28,33 +31,28 @@ router.post("/signup", async (req, res) => {
   try {
     // Check if user already exists
     const existingAdmin = await Admin.findOne({ email });
-    if (existingAdmin)
+    if (existingAdmin) {
       return res.status(400).json({ message: "Email already exists. Please sign in." });
+    }
 
     // Generate OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+    const expiresAt = Date.now() + 10 * 60 * 1000; // Expires in 10 mins
 
-    // Store OTP in temporary store (or directly save to Admin document if preferred)
-    const newAdmin = new Admin({
-      email,
-      name: "New Admin",
-      otp: { code: otpCode, expiresAt }
-    });
-    await newAdmin.save();
+    // Store OTP temporarily
+    otpStore.set(email, { code: otpCode, expiresAt });
 
     // Send OTP email
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: email,
       subject: "Your Admin Signup OTP",
-      text: `Your OTP for admin signup is ${otpCode}. It will expire in 10 minutes.`
+      text: `Your OTP for admin signup is ${otpCode}. It will expire in 10 minutes.`,
     });
 
     res.status(200).json({
       success: true,
       message: "OTP sent to email. Please verify to complete signup.",
-      email
     });
   } catch (err) {
     console.error("Signup error:", err);
@@ -62,28 +60,42 @@ router.post("/signup", async (req, res) => {
   }
 });
 router.post("/verify-signup-otp", async (req, res) => {
-  const { email, otp } = req.body;
+  const { email, otp, firstName, lastName } = req.body;
 
-  if (!email || !otp)
-    return res.status(400).json({ message: "Email and OTP are required" });
+  if (!email || !otp || !firstName || !lastName) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
 
   try {
-    const admin = await Admin.findOne({ email });
-    if (!admin)
-      return res.status(404).json({ message: "No signup request found for this email" });
+    // Get OTP from temporary store
+    const storedOtp = otpStore.get(email);
 
-    if (admin.otp.code !== otp)
+    if (!storedOtp) {
+      return res.status(400).json({ message: "No OTP request found for this email" });
+    }
+
+    if (storedOtp.code !== otp) {
       return res.status(400).json({ message: "Invalid OTP" });
+    }
 
-    if (admin.otp.expiresAt < new Date())
+    if (storedOtp.expiresAt < Date.now()) {
+      otpStore.delete(email); // Remove expired OTP
       return res.status(400).json({ message: "OTP expired" });
+    }
 
-    // OTP verified - clear OTP and activate account
-    admin.otp = undefined;
-    await admin.save();
+    // OTP is valid - Create user
+    const newAdmin = new Admin({
+      email,
+      name: `${firstName} ${lastName}`,
+    });
+    await newAdmin.save();
 
+    // Clear OTP from store
+    otpStore.delete(email);
+
+    // Generate JWT
     const token = jwt.sign(
-      { id: admin._id, email: admin.email, role: admin.role },
+      { id: newAdmin._id, email: newAdmin.email, role: newAdmin.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -93,18 +105,19 @@ router.post("/verify-signup-otp", async (req, res) => {
       message: "Signup successful",
       token,
       admin: {
-        id: admin._id,
-        email: admin.email,
-        name: admin.name,
-        role: admin.role,
-        profileImage: admin.profileImage
-      }
+        id: newAdmin._id,
+        email: newAdmin.email,
+        name: newAdmin.name,
+        role: newAdmin.role,
+        profileImage: newAdmin.profileImage,
+      },
     });
   } catch (err) {
     console.error("Signup OTP verification error:", err);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
+
 router.post("/login", async (req, res) => {
   const { email } = req.body;
 
