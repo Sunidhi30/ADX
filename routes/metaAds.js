@@ -14,5 +14,6 @@ router.get('/campaigns/:userId/:campaignId/insights', MetaAdsController.getCampa
 router.delete('/campaigns/:userId/:campaignId', MetaAdsController.deleteCampaign);
 router.get('/page/followers/:userId', MetaAdsController.getPageFollowers);
 
-// Make sure to export the router
+
+
 module.exports = router;

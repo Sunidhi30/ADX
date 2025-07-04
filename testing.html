@@ -22,6 +22,14 @@
             color: #333;
             margin-top: 0;
         }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
         input, select, textarea {
             width: 100%;
             padding: 8px;
@@ -38,9 +46,31 @@
             border-radius: 4px;
             cursor: pointer;
             margin: 10px 0;
+            position: relative;
         }
         button:hover {
             background: #365899;
+        }
+        button.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        button.loading:after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         pre {
             background: #f8f8f8;
@@ -50,12 +80,18 @@
             white-space: pre-wrap;
         }
         .error {
-            color: red;
+            color: #dc3545;
             margin: 5px 0;
+            padding: 10px;
+            background: #fff3f3;
+            border-radius: 4px;
         }
         .success {
-            color: green;
+            color: #28a745;
             margin: 5px 0;
+            padding: 10px;
+            background: #f3fff3;
+            border-radius: 4px;
         }
     </style>
 </head>
@@ -65,77 +101,134 @@
     <!-- Connect Facebook -->
     <div class="section">
         <h2>1. Connect Facebook Account</h2>
-        <input type="text" id="connectUserId" placeholder="User ID">
-        <button onclick="connectFacebook()">Connect Facebook</button>
+        <div class="form-group">
+            <label for="connectUserId">User ID</label>
+            <input type="text" id="connectUserId" placeholder="Enter your MongoDB User ID">
+        </div>
+        <button onclick="connectFacebook()" id="connectButton">Connect Facebook</button>
         <pre id="connectResult"></pre>
     </div>
 
     <!-- Get Ad Accounts -->
     <div class="section">
         <h2>2. Get Ad Accounts</h2>
-        <input type="text" id="adAccountsUserId" placeholder="User ID">
-        <button onclick="getAdAccounts()">Fetch Ad Accounts</button>
+        <div class="form-group">
+            <label for="adAccountsUserId">User ID</label>
+            <input type="text" id="adAccountsUserId" placeholder="Enter your MongoDB User ID">
+        </div>
+        <button onclick="getAdAccounts()" id="adAccountsButton">Fetch Ad Accounts</button>
         <pre id="adAccountsResult"></pre>
     </div>
 
     <!-- Create Campaign -->
     <div class="section">
         <h2>3. Create Campaign</h2>
-        <input type="text" id="campaignUserId" placeholder="User ID">
-        <input type="text" id="campaignName" placeholder="Campaign Name">
-        <select id="objective">
-            <option value="REACH">Reach</option>
-            <option value="LINK_CLICKS">Traffic</option>
-            <option value="POST_ENGAGEMENT">Engagement</option>
-            <option value="CONVERSIONS">Conversions</option>
-            <option value="VIDEO_VIEWS">Video Views</option>
-            <option value="BRAND_AWARENESS">Brand Awareness</option>
-            <option value="LEAD_GENERATION">Lead Generation</option>
-            <option value="MESSAGES">Messages</option>
-        </select>
-        <input type="number" id="budget" placeholder="Budget Amount (in USD)">
-        <h4>Targeting</h4>
-        <input type="number" id="ageMin" placeholder="Min Age" value="18">
-        <input type="number" id="ageMax" placeholder="Max Age" value="65">
-        <input type="text" id="locations" placeholder="Locations (comma-separated, e.g., US,IN)">
-        <input type="text" id="interests" placeholder="Interests (comma-separated)">
-        <h4>Creative</h4>
-        <input type="text" id="imageUrl" placeholder="Image URL">
-        <input type="text" id="headline" placeholder="Headline">
-        <textarea id="description" placeholder="Description"></textarea>
-        <button onclick="createCampaign()">Create Campaign</button>
+        <form id="campaignForm" onsubmit="createCampaign(event)">
+            <div class="form-group">
+                <label for="campaignUserId">User ID</label>
+                <input type="text" id="campaignUserId" placeholder="Enter your MongoDB User ID" required>
+            </div>
+            <div class="form-group">
+                <label for="campaignName">Campaign Name</label>
+                <input type="text" id="campaignName" placeholder="Enter campaign name" required>
+            </div>
+            <div class="form-group">
+                <label for="objective">Campaign Objective</label>
+                <select id="objective" required>
+                    <option value="OUTCOME_AWARENESS">Awareness</option>
+                    <option value="OUTCOME_TRAFFIC">Traffic</option>
+                    <option value="OUTCOME_ENGAGEMENT">Engagement</option>
+                    <option value="OUTCOME_LEADS">Lead Generation</option>
+                    <option value="OUTCOME_SALES">Sales</option>
+                    <option value="OUTCOME_APP_PROMOTION">App Promotion</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="budget">Daily Budget (USD)</label>
+                <input type="number" id="budget" min="1" placeholder="Enter daily budget" required>
+            </div>
+            <h4>Targeting</h4>
+            <div class="form-group">
+                <label for="ageMin">Minimum Age</label>
+                <input type="number" id="ageMin" min="18" max="65" value="25" required>
+            </div>
+            <div class="form-group">
+                <label for="ageMax">Maximum Age</label>
+                <input type="number" id="ageMax" min="18" max="65" value="55" required>
+            </div>
+            <div class="form-group">
+                <label for="locations">Locations (comma-separated)</label>
+                <input type="text" id="locations" placeholder="US,CA,UK" value="US" required>
+            </div>
+            <div class="form-group">
+                <label for="interests">Interests (comma-separated)</label>
+                <input type="text" id="interests" placeholder="fitness,yoga,health" required>
+            </div>
+            <div class="form-group">
+                <label for="imageUrl">Image URL</label>
+                <input type="url" id="imageUrl" placeholder="https://example.com/image.jpg" required>
+            </div>
+            <div class="form-group">
+                <label for="headline">Headline</label>
+                <input type="text" id="headline" placeholder="Enter ad headline" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" placeholder="Enter ad description" required></textarea>
+            </div>
+            <button type="submit" id="createCampaignButton">Create Campaign</button>
+        </form>
         <pre id="campaignResult"></pre>
     </div>
 
     <!-- Get Campaigns -->
     <div class="section">
         <h2>4. View Campaigns</h2>
-        <input type="text" id="viewCampaignsUserId" placeholder="User ID">
-        <button onclick="getCampaigns()">Get Campaigns</button>
+        <div class="form-group">
+            <label for="viewCampaignsUserId">User ID</label>
+            <input type="text" id="viewCampaignsUserId" placeholder="Enter your MongoDB User ID">
+        </div>
+        <button onclick="getCampaigns()" id="viewCampaignsButton">Get Campaigns</button>
         <pre id="campaignsResult"></pre>
     </div>
 
-    <!-- Update Campaign Status -->
+    <!-- Campaign Insights -->
     <div class="section">
-        <h2>5. Update Campaign Status</h2>
-        <input type="text" id="updateStatusUserId" placeholder="User ID">
-        <input type="text" id="updateStatusCampaignId" placeholder="Campaign ID">
-        <select id="newStatus">
-            <option value="ACTIVE">Active</option>
-            <option value="PAUSED">Paused</option>
-        </select>
-        <button onclick="updateCampaignStatus()">Update Status</button>
-        <pre id="updateStatusResult"></pre>
+        <h2>5. Campaign Insights</h2>
+        <div class="form-group">
+            <label for="insightsUserId">User ID</label>
+            <input type="text" id="insightsUserId" placeholder="Enter your MongoDB User ID">
+        </div>
+        <div class="form-group">
+            <label for="insightsCampaignId">Campaign ID</label>
+            <input type="text" id="insightsCampaignId" placeholder="Enter Facebook Campaign ID">
+        </div>
+        <button onclick="getCampaignInsights()" id="insightsButton">Get Insights</button>
+        <pre id="insightsResult"></pre>
     </div>
 
     <script>
         const API_BASE_URL = 'http://localhost:9000/api/meta-ads';
 
-        function displayResult(elementId, data) {
-            document.getElementById(elementId).textContent = JSON.stringify(data, null, 2);
+        function setLoading(buttonId, isLoading) {
+            const button = document.getElementById(buttonId);
+            if (isLoading) {
+                button.classList.add('loading');
+                button.disabled = true;
+            } else {
+                button.classList.remove('loading');
+                button.disabled = false;
+            }
+        }
+
+        function displayResult(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.className = isError ? 'error' : 'pre';
+            element.textContent = JSON.stringify(data, null, 2);
         }
 
         async function connectFacebook() {
+            setLoading('connectButton', true);
             try {
                 const userId = document.getElementById('connectUserId').value;
                 const response = await fetch(`${API_BASE_URL}/connect`, {
@@ -149,22 +242,29 @@
                     window.open(data.authUrl, '_blank');
                 }
             } catch (error) {
-                displayResult('connectResult', { error: error.message });
+                displayResult('connectResult', { error: error.message }, true);
+            } finally {
+                setLoading('connectButton', false);
             }
         }
 
         async function getAdAccounts() {
+            setLoading('adAccountsButton', true);
             try {
                 const userId = document.getElementById('adAccountsUserId').value;
-                const response = await fetch(`${API_BASE_URL}/adaccounts/${userId}`);
+                const response = await fetch(`${API_BASE_URL}/accounts/${userId}`);
                 const data = await response.json();
                 displayResult('adAccountsResult', data);
             } catch (error) {
-                displayResult('adAccountsResult', { error: error.message });
+                displayResult('adAccountsResult', { error: error.message }, true);
+            } finally {
+                setLoading('adAccountsButton', false);
             }
         }
 
-        async function createCampaign() {
+        async function createCampaign(event) {
+            event.preventDefault();
+            setLoading('createCampaignButton', true);
             try {
                 const userId = document.getElementById('campaignUserId').value;
                 const campaign = {
@@ -177,13 +277,15 @@
                     targeting: {
                         ageMin: parseInt(document.getElementById('ageMin').value),
                         ageMax: parseInt(document.getElementById('ageMax').value),
+                        genders: ['1', '2'],
                         locations: document.getElementById('locations').value.split(',').map(loc => loc.trim()),
                         interests: document.getElementById('interests').value.split(',').map(i => i.trim())
                     },
                     creative: {
                         imageUrl: document.getElementById('imageUrl').value,
                         headline: document.getElementById('headline').value,
-                        description: document.getElementById('description').value
+                        description: document.getElementById('description').value,
+                        callToAction: 'LEARN_MORE'
                     }
                 };
 
@@ -194,37 +296,42 @@
                 });
                 const data = await response.json();
                 displayResult('campaignResult', data);
+                if (data.success) {
+                    document.getElementById('campaignForm').reset();
+                }
             } catch (error) {
-                displayResult('campaignResult', { error: error.message });
+                displayResult('campaignResult', { error: error.message }, true);
+            } finally {
+                setLoading('createCampaignButton', false);
             }
         }
 
         async function getCampaigns() {
+            setLoading('viewCampaignsButton', true);
             try {
                 const userId = document.getElementById('viewCampaignsUserId').value;
                 const response = await fetch(`${API_BASE_URL}/campaigns/${userId}`);
                 const data = await response.json();
                 displayResult('campaignsResult', data);
             } catch (error) {
-                displayResult('campaignsResult', { error: error.message });
+                displayResult('campaignsResult', { error: error.message }, true);
+            } finally {
+                setLoading('viewCampaignsButton', false);
             }
         }
 
-        async function updateCampaignStatus() {
+        async function getCampaignInsights() {
+            setLoading('insightsButton', true);
             try {
-                const userId = document.getElementById('updateStatusUserId').value;
-                const campaignId = document.getElementById('updateStatusCampaignId').value;
-                const status = document.getElementById('newStatus').value;
-
-                const response = await fetch(`${API_BASE_URL}/campaigns/${userId}/${campaignId}/status`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status })
-                });
+                const userId = document.getElementById('insightsUserId').value;
+                const campaignId = document.getElementById('insightsCampaignId').value;
+                const response = await fetch(`${API_BASE_URL}/campaigns/${userId}/${campaignId}/insights`);
                 const data = await response.json();
-                displayResult('updateStatusResult', data);
+                displayResult('insightsResult', data);
             } catch (error) {
-                displayResult('updateStatusResult', { error: error.message });
+                displayResult('insightsResult', { error: error.message }, true);
+            } finally {
+                setLoading('insightsButton', false);
             }
         }
     </script>
