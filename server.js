@@ -8,6 +8,8 @@ const userRoutes = require("./routes/User")
 const adminRoutes = require("./routes/admin")
 const facebookRoutes = require("./routes/facebook")
 const metaRoutes = require("./routes/metaAds")
+const startCampaignScheduler = require('./utils/campaignScheduler'); // 👈 Import the scheduler
+
 require('dotenv').config()
 db();
 app.use(cors({
@@ -19,6 +21,8 @@ app.use(cors({
 app.use(express.json());
 app.listen(PORT,()=>{
     console.log(`Server started at ${PORT}`)
+    startCampaignScheduler(); // ✅ Start scheduler after DB is ready
+
 })
 //all the basic apis 
 app.use("/api/auth", authRoutes);

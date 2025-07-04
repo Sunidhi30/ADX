@@ -1,7 +1,5 @@
 // // models/AdCampaign.js
 const mongoose = require('mongoose');
-
-
 const adCampaignSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -38,10 +36,13 @@ const adCampaignSchema = new mongoose.Schema({
     description: String,
     callToAction: String
   },
-  
+  schedule: {
+    startTime: Date, 
+    endTime: Date   
+  },
   status: {
     type: String,
-    enum: ['DRAFT', 'ACTIVE', 'PAUSED', 'DELETED']
+    enum: ['DRAFT', 'ACTIVE', 'PAUSED', 'DELETED','SCHEDULED']
   }
 });
 module.exports = mongoose.model('AdCampaign', adCampaignSchema);

@@ -3,6 +3,7 @@ const axios = require('axios');
 const User = require('../models/User');
 const AdCampaign = require('../models/AdCampaign');
 FACEBOOK_REDIRECT_URI='http://localhost:9000/api/meta-ads/callback'
+const Post = require('../models/Post');
 
 
 // At the top of your file
@@ -58,6 +59,7 @@ static async connectFacebook(req, res) {
     });
   }
 }
+//handle facebook connections
 static async handleFacebookCallback(req, res) {
   try {
     const { code, state } = req.query;
@@ -167,7 +169,6 @@ static async handleFacebookCallback(req, res) {
     });
   }
 }
-
 // Add this static method to your MetaAdsController class
 static async updateUserMetaIntegration(userId, metaData) {
   try {
@@ -192,105 +193,7 @@ static async updateUserMetaIntegration(userId, metaData) {
     throw error;
   }
 }
-// static async handleFacebookCallback(req, res) {
-//   try {
-//     const { code, state } = req.query;
 
-//     // Validate required parameters
-//     if (!code || !state) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Missing required parameters: code and state'
-//       });
-//     }
-
-//     // Decode and parse state parameter
-//     let decodedState;
-//     try {
-//       const stateString = Buffer.from(state, 'base64').toString();
-//       decodedState = JSON.parse(stateString);
-//     } catch (parseError) {
-//       console.error('State parsing error:', parseError);
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Invalid state parameter',
-//         debug: { state }
-//       });
-//     }
-
-//     const { userId } = decodedState;
-
-//     if (!userId) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Invalid state: missing userId',
-//         debug: { decodedState }
-//       });
-//     }
-
-//     // Exchange code for access token
-//     const tokenResponse = await axios.get(`${FACEBOOK_GRAPH_URL}/oauth/access_token`, {
-//       params: {
-//         client_id: process.env.FACEBOOK_APP_ID,
-//         client_secret: process.env.FACEBOOK_APP_SECRET,
-//         redirect_uri: process.env.FACEBOOK_REDIRECT_URI,
-//         code
-//       }
-//     });
-
-//     const accessToken = tokenResponse.data.access_token;
-//     const expiresIn = tokenResponse.data.expires_in || 5184000;
-//     const tokenExpiry = new Date(Date.now() + (expiresIn * 1000));
-
-//     // Fetch user's ad accounts
-//     const adAccountsResponse = await axios.get(`${FACEBOOK_GRAPH_URL}/me/adaccounts`, {
-//       params: {
-//         fields: 'id,name,account_status,business',
-//         access_token: accessToken
-//       }
-//     });
-
-//     const activeAdAccount = adAccountsResponse.data.data.find(acc => acc.account_status === 1);
-
-//     if (!activeAdAccount) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'No active ad accounts found'
-//       });
-//     }
-
-//     // Update user with Meta integration details
-//     await User.findByIdAndUpdate(userId, {
-//       $set: {
-//         'integrations.metaAds': {
-//           isConnected: true,
-//           accessToken: accessToken,
-//           tokenExpiry: tokenExpiry,
-//           adAccountId: activeAdAccount.id
-//         }
-//       }
-//     });
-
-//     res.json({
-//       success: true,
-//       message: 'Facebook successfully connected',
-//       data: {
-//         accessToken: accessToken,
-//         expiresIn: expiresIn,
-//         tokenExpiry: tokenExpiry,
-//         adAccount: activeAdAccount
-//       }
-//     });
-
-//   } catch (error) {
-//     console.error('Facebook callback error:', error.response?.data || error);
-//     res.status(500).json({
-//       success: false,
-//       error: error.message,
-//       details: error.response?.data || 'Failed to process Facebook callback'
-//     });
-//   }
-// }
 static async getAdAccounts(req, res) {
   try {
     const { userId } = req.params;
@@ -478,7 +381,44 @@ static async createCampaign(req, res) {
           details: error.response?.data
         });
       }
+}
+static async getUserCampaigns(req, res) {
+  try {
+    const { userId } = req.params;
+
+    // Validate userId
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    // Find all campaigns created by this user
+    const campaigns = await AdCampaign.find({ userId });
+
+    if (campaigns.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No campaigns found for this user'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: campaigns.length,
+      campaigns
+    });
+  } catch (error) {
+    console.error('Get user campaigns error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch campaigns',
+      error: error.message
+    });
   }
+}
+
 // static async createCampaign(req, res) {
 //     try {
 //       const { userId } = req.params;
@@ -637,6 +577,39 @@ static async searchInterests(req, res) {
     });
   }
 }
+// controllers/metaAdsController.js
+static async scheduleCampaign(req, res) {
+  try {
+    const { id } = req.params; // Campaign ID in MongoDB
+    const { startTime, endTime } = req.body;
+
+    const campaign = await AdCampaign.findOne({ campaignId: id });
+
+    if (!campaign) {
+      return res.status(404).json({
+        success: false,
+        message: 'Campaign not found'
+      });
+    }
+
+    campaign.schedule = { startTime, endTime };
+    campaign.status = 'SCHEDULED'; // Mark as scheduled
+    await campaign.save();
+
+    res.json({
+      success: true,
+      message: 'Campaign scheduled successfully',
+      data: campaign
+    });
+  } catch (error) {
+    console.error('Schedule campaign error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to schedule campaign',
+      error: error.message
+    });
+  }
+}
 // Get campaigns
 static async getCampaigns(req, res) {
     try {
@@ -704,71 +677,6 @@ static async updateCampaignStatus(req, res) {
   }
 }
 // Get campaign insights
-// static async getCampaignInsights(req, res) {
-//   try {
-//     const { userId, campaignId } = req.params;
-    
-//     const user = await User.findById(userId);
-//     if (!user?.integrations?.metaAds?.isConnected) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Meta Ads not connected'
-//       });
-//     }
-
-//     const campaign = await AdCampaign.findOne({ 
-//       userId, 
-//       campaignId: campaignId // Using Facebook's campaign ID
-//     });
-
-//     if (!campaign) {
-//       return res.status(404).json({
-//         success: false,
-//         message: 'Campaign not found'
-//       });
-//     }
-
-//     const { accessToken } = user.integrations.metaAds;
-
-//     // Verify campaign exists on Facebook
-//     try {
-//       await axios.get(`${FACEBOOK_GRAPH_URL}/${campaignId}`, {
-//         params: { access_token: accessToken }
-//       });
-//     } catch (fbError) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Campaign not found on Facebook or access denied',
-//         error: fbError.response?.data?.error?.message
-//       });
-//     }
-
-//     const insightsResponse = await axios.get(`${FACEBOOK_GRAPH_URL}/${campaignId}/insights`, {
-//       params: {
-//         fields: 'impressions,clicks,spend,reach,ctr,cpm,frequency',
-//         access_token: accessToken,
-//         date_preset: 'lifetime'
-//       }
-//     });
-
-//     const insights = insightsResponse.data.data[0] || {};
-
-//     res.json({
-//       success: true,
-//       data: {
-//         campaign,
-//         insights
-//       }
-//     });
-//   } catch (error) {
-//     console.error('Get insights error:', error.response?.data || error);
-//     res.status(500).json({
-//       success: false,
-//       message: 'Failed to fetch campaign insights',
-//       error: error.response?.data?.error?.message || error.message
-//     });
-//   }
-// }
 static async getCampaignInsights(req, res) {
   try {
     const { userId, campaignId } = req.params;
@@ -936,6 +844,76 @@ static async getPageFollowers(req, res) {
       });
     }
 }
+static async getCampaignAnalytics(req, res) {
+  try {
+    const { id } = req.params; // Facebook campaignId
+
+    const campaign = await AdCampaign.findOne({ campaignId: id });
+
+    if (!campaign) {
+      return res.status(404).json({
+        success: false,
+        message: 'Campaign not found'
+      });
+    }
+
+    // Return analytics
+    res.json({
+      success: true,
+      analytics: {
+        status: campaign.status,
+        budget: campaign.budget,
+        schedule: campaign.schedule,
+        targeting: campaign.targeting,
+        creative: campaign.creative
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching campaign analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch campaign analytics',
+      error: error.message
+    });
+  }
+};
+// static async getPostAnalytics (req, res) {
+//   try {
+//     const { id } = req.params;
+
+//     // Check if ID is a valid ObjectId
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid Post ID'
+//       });
+//     }
+
+//     // Find the post
+//     const post = await Post.findById(id);
+
+//     if (!post) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Post not found'
+//       });
+//     }
+
+//     // Return analytics data
+//     res.status(200).json({
+//       success: true,
+//       analytics: post.analytics
+//     });
+//   } catch (error) {
+//     console.error('Error fetching post analytics:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to fetch post analytics',
+//       error: error.message
+//     });
+//   }
+// };
+
 }
 
 module.exports = MetaAdsController;
