@@ -8,7 +8,6 @@ const { uploadToCloudinary } = require("../utils/cloudinary");
 const razorpay = require('../utils/razorpay');
 const Transaction = require("../models/Transaction")
 const crypto = require('crypto');
-
 // GET /profile — fetch user profile
 router.get("/profile", isUser, async (req, res) => {
   try {
@@ -293,6 +292,5 @@ router.get('/subscription/my-subscription', isUser, async (req, res) => {
     }
   });
 });
-
 
 module.exports = router;

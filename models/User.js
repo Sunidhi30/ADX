@@ -6,7 +6,6 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-
   otp: {
     code: String,
     expiresAt: Date
@@ -23,7 +22,7 @@ const userSchema = new mongoose.Schema({
   profileImage: {
     type: String,
     default: ""
-  },  
+  },
   instagram: {
     isConnected: { type: Boolean, default: false },
     instagramUserId: String,
